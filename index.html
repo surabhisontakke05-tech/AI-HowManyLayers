@@ -46,4 +46,127 @@
   </div>
 
 <script>
-let ta
+let tasks = [];
+let method = "Checklist";
+let lastDate = null;
+
+const methodDescriptions = {
+  "Checklist": "✅ Simple: complete each step anytime today.",
+  "Habit Stacking": "🔗 Link a new habit to an existing one (e.g., after coffee → stretch).",
+  "Time Blocking": "⏰ Assign rough times to each step (e.g., 9am deep work)."
+};
+
+function load() {
+  const data = JSON.parse(localStorage.getItem("routine-app"));
+  if (data) {
+    tasks = data.tasks || [];
+    method = data.method || "Checklist";
+    lastDate = data.lastDate;
+  }
+}
+
+function save() {
+  localStorage.setItem("routine-app", JSON.stringify({
+    tasks, method, lastDate
+  }));
+}
+
+function resetIfNewDay() {
+  const today = new Date().toDateString();
+  if (lastDate && lastDate !== today) {
+    tasks = tasks.map(t => ({ ...t, completed: false }));
+  }
+  lastDate = today;
+}
+
+function switchTab(newMethod) {
+  method = newMethod;
+
+  document.querySelectorAll(".tab").forEach(btn => {
+    btn.classList.remove("bg-black", "text-white");
+    btn.classList.add("bg-gray-200");
+  });
+
+  const active = document.getElementById("tab-" + newMethod);
+  active.classList.add("bg-black", "text-white");
+  active.classList.remove("bg-gray-200");
+
+  render();
+}
+
+function addTask() {
+  const input = document.getElementById("taskInput");
+  if (!input.value.trim()) return;
+
+  tasks.push({ text: input.value, completed: false });
+  input.value = "";
+  render();
+}
+
+function toggleTask(i) {
+  tasks[i].completed = !tasks[i].completed;
+  render();
+}
+
+function deleteTask(i) {
+  tasks.splice(i, 1);
+  render();
+}
+
+function render() {
+  const list = document.getElementById("taskList");
+  list.innerHTML = "";
+
+  document.getElementById("methodInfo").innerText =
+    methodDescriptions[method];
+
+  tasks.forEach((task, i) => {
+    const div = document.createElement("div");
+    div.className = "flex justify-between items-center border p-2 rounded";
+
+    const span = document.createElement("span");
+
+    // Add emoji per method
+    let prefix = "✅";
+    if (method === "Habit Stacking") prefix = "🔗";
+    if (method === "Time Blocking") prefix = "⏰";
+
+    span.textContent = prefix + " " + task.text;
+    span.className = "flex-1 cursor-pointer " +
+      (task.completed ? "line-through text-gray-400" : "");
+
+    span.onclick = () => toggleTask(i);
+
+    const del = document.createElement("button");
+    del.textContent = "🗑️";
+    del.className = "ml-2";
+    del.onclick = () => deleteTask(i);
+
+    div.appendChild(span);
+    div.appendChild(del);
+    list.appendChild(div);
+  });
+
+  const completed = tasks.filter(t => t.completed).length;
+  const total = tasks.length;
+  const percent = total ? Math.round((completed / total) * 100) : 0;
+
+  document.getElementById("progressText").innerText =
+    `📊 ${completed}/${total} done`;
+
+  document.getElementById("progressBar").style.width = percent + "%";
+
+  document.getElementById("emptyState").style.display =
+    total === 0 ? "block" : "none";
+
+  save();
+}
+
+// Init
+load();
+resetIfNewDay();
+render();
+</script>
+
+</body>
+</html>
