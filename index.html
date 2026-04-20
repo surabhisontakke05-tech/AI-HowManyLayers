@@ -1,137 +1,176 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>How Many Layers</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>How many layers</title>
+
   <style>
     body {
       font-family: Arial, sans-serif;
       background: #ffffff;
       color: #111;
       text-align: center;
-      padding: 40px;
+      padding: 50px 20px;
     }
+
     h1 {
       font-size: 2rem;
-      margin-bottom: 20px;
+      margin-bottom: 30px;
     }
+
     input {
-      padding: 12px;
+      padding: 14px;
       font-size: 16px;
       width: 280px;
+      border-radius: 10px;
       border: 1px solid #ccc;
-      border-radius: 8px;
     }
+
     .suggestions {
-      border: 1px solid #ddd;
       max-width: 280px;
-      margin: 0 auto;
-      border-radius: 8px;
+      margin: 10px auto;
+      border: 1px solid #eee;
+      border-radius: 10px;
       overflow: hidden;
     }
+
     .suggestions div {
       padding: 10px;
       cursor: pointer;
       background: #fff;
     }
+
     .suggestions div:hover {
-      background: #f0f0f0;
+      background: #f5f5f5;
     }
+
     .results {
       margin-top: 40px;
     }
+
     .card {
-      border: 1px solid #ddd;
-      border-radius: 12px;
+      border: 1px solid #eee;
+      border-radius: 14px;
       padding: 20px;
       margin: 10px auto;
-      max-width: 300px;
+      max-width: 280px;
     }
+
     .time {
       font-weight: bold;
-      margin-bottom: 10px;
+      margin-bottom: 8px;
     }
   </style>
 </head>
+
 <body>
 
-<h1>How many layers today?</h1>
+  <h1>How many layers today?</h1>
 
-<input id="locationInput" placeholder="Enter your city..." autocomplete="off">
-<div id="suggestions" class="suggestions"></div>
+  <input id="input" placeholder="Enter your city..." autocomplete="off"/>
+  <div id="suggestions" class="suggestions"></div>
 
-<div id="results" class="results"></div>
+  <div id="results" class="results"></div>
 
-<script>
-const apiKey = "5548d9cc522cda0a9306ec0a93a1a8e1"; // 🔑 replace this
+  <script>
+    const input = document.getElementById("input");
+    const suggestionsBox = document.getElementById("suggestions");
+    const resultsDiv = document.getElementById("results");
 
-const input = document.getElementById("locationInput");
-const suggestionsBox = document.getElementById("suggestions");
-const resultsDiv = document.getElementById("results");
+    let selectedLocation = null;
 
-let selectedLocation = null;
+    // 🔍 Fetch location suggestions (NO API KEY)
+    input.addEventListener("input", async () => {
+      const value = input.value;
 
-// Fetch location suggestions
-input.addEventListener("input", async () => {
-  const query = input.value;
-  if (query.length < 2) return suggestionsBox.innerHTML = "";
+      if (value.length < 2) {
+        suggestionsBox.innerHTML = "";
+        return;
+      }
 
-  const res = await fetch(
-    `https://geocoding-api.open-meteo.com/v1/search?name=?q=${query}&limit=5&appid=${apiKey}`
-  );
-  const data = await res.json();
+      try {
+        const res = await fetch(
+          `https://geocoding-api.open-meteo.com/v1/search?name=${value}`
+        );
 
-  suggestionsBox.innerHTML = data.map(loc => `
-    <div onclick="selectLocation('${loc.name}', ${loc.lat}, ${loc.lon})">
-      ${loc.name}, ${loc.country}
-    </div>
-  `).join("");
-});
+        const data = await res.json();
 
-// Select location
-function selectLocation(name, lat, lon) {
-  input.value = name;
-  suggestionsBox.innerHTML = "";
-  selectedLocation = { lat, lon };
-  fetchWeather();
-}
+        if (!data.results) {
+          suggestionsBox.innerHTML = "";
+          return;
+        }
 
-// Fetch weather forecast
-async function fetchWeather() {
-  const res = await fetch(
-    `https://api.openweathermap.org/data/2.5/forecast?lat=${selectedLocation.lat}&lon=${selectedLocation.lon}&units=metric&appid=${apiKey}`
-  );
-  const data = await res.json();
+        suggestionsBox.innerHTML = data.results
+          .slice(0, 5)
+          .map(
+            (loc) => `
+            <div onclick="selectLocation('${loc.name}', ${loc.latitude}, ${loc.longitude})">
+              ${loc.name}, ${loc.country}
+            </div>
+          `
+          )
+          .join("");
+      } catch (e) {
+        console.error(e);
+      }
+    });
 
-  // get now, +3h, +6h
-  const forecasts = [data.list[0], data.list[1], data.list[2]];
+    // 📍 Select location
+    function selectLocation(name, lat, lon) {
+      input.value = name;
+      suggestionsBox.innerHTML = "";
 
-  resultsDiv.innerHTML = forecasts.map((f, i) => {
-    const temp = f.main.temp;
-    const layers = getLayers(temp);
+      selectedLocation = { lat, lon };
+      fetchWeather();
+    }
 
-    const label = i === 0 ? "Now" : `+${i*3}h`;
+    // 🌤 Fetch weather (NO API KEY)
+    async function fetchWeather() {
+      try {
+        const res = await fetch(
+          `https://api.open-meteo.com/v1/forecast?latitude=${selectedLocation.lat}&longitude=${selectedLocation.lon}&hourly=temperature_2m&forecast_days=1`
+        );
 
-    return `
-      <div class="card">
-        <div class="time">${label}</div>
-        <div>${temp.toFixed(1)}°C</div>
-        <div>${layers}</div>
-      </div>
-    `;
-  }).join("");
-}
+        const data = await res.json();
 
-// Layer logic
-function getLayers(temp) {
-  if (temp >= 25) return "1 layer (t-shirt)";
-  if (temp >= 18) return "2 layers (t-shirt + light layer)";
-  if (temp >= 10) return "3 layers (sweater/jacket)";
-  if (temp >= 0) return "4 layers (coat)";
-  return "5 layers (winter gear)";
-}
-</script>
+        const nowIndex = 0;
+        const plus3 = 3;
+        const plus6 = 6;
+
+        const temps = [
+          data.hourly.temperature_2m[nowIndex],
+          data.hourly.temperature_2m[plus3],
+          data.hourly.temperature_2m[plus6],
+        ];
+
+        const labels = ["Now", "+3h", "+6h"];
+
+        resultsDiv.innerHTML = temps
+          .map((temp, i) => {
+            return `
+              <div class="card">
+                <div class="time">${labels[i]}</div>
+                <div>${temp.toFixed(1)}°C</div>
+                <div>${getLayers(temp)}</div>
+              </div>
+            `;
+          })
+          .join("");
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    // 🧥 Layer logic
+    function getLayers(temp) {
+      if (temp >= 25) return "1 layer (t-shirt)";
+      if (temp >= 18) return "2 layers (light layer)";
+      if (temp >= 10) return "3 layers (jacket)";
+      if (temp >= 0) return "4 layers (coat)";
+      return "5 layers (winter gear)";
+    }
+  </script>
 
 </body>
 </html>
